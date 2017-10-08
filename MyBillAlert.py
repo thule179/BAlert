@@ -2,12 +2,35 @@ import json
 import requests
 import datetime
 import operator
+from twilio.rest import Client
 
 url = "http://api119525live.gateway.akana.com:80/"
 trans_url = "https://api119622live.gateway.akana.com:443/"
+account_sid = "AC138300689e5e1f81445e6211bef726dd"
+auth_token  = "68d9c64504a692a77352c986155edb54"
+client = Client(account_sid, auth_token)
 #response = requests.get(url + "users")
 #json_data = json.loads(response.text)
 #users = json_data["LegalParticipantIdentifierList"]
+# Your Account SID from twilio.com/console
+
+def sendSMS(alert, contact):
+    msg_str = "Hi " + contact + ", " + " can you look into this for me? " + "\n" + alert
+    message = client.messages.create(
+        to="+12818657070",
+        from_="+18327304269",
+        body= msg_str)
+    print("Alert successfully sent to THU")
+    #print(message.sid)
+
+def callContact(contact, number):
+    # Make the call
+    call = client.api.account.calls\
+            .create(to = number ,  # Any phone number
+              from_="+18327304269", # Must be a valid Twilio number
+              url="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient")
+    print("Calling " +  contact)
+    print(call.sid)
 
 def found_dict((key, value), myList):
     for mydict in myList:
@@ -84,12 +107,25 @@ def processTransactions(user, transactions):
     # test data:
     test_record1 = {'type' : "PAYMENT", 'description' : "OVERDRAFT FEE", 'amount' : "100.0", 'time' : 1469145612000, 'product_code' : "DDA", 'date' : '2016-07-22'}
     test_record2 = {'type' : "PAYMENT", 'description' : "OVERDRAFT FEE", 'amount' : "180.0", 'time' : 1468887746000, 'product_code' : "DDA", 'date' : '2016-07-19'}
-    user_trans_history.append(test_record1)
     user_trans_history.append(test_record2)
+    user_trans_history.append(test_record1)
 
     return user_trans_history
 
+def checkSuspect(alert):
+    user_answer = raw_input("Is this intended? Y/N :")
+    user_answer = user_answer.upper()
+    if user_answer != 'Y' and user_answer != 'N' and user_answer != 'YES' and user_answer != 'NO':
+        user_answer = raw_input('Please answer Y or N: ')
+        user_answer = user_answer.upper()
+    elif user_answer == 'Y' or user_answer == 'YES':
+        return('Alert ignored')
+    else:
+        return getSolutions(alert)
+    return 'No suspicious activities'
+
 def findSuspects(user, transactions):
+    alert_report = []
     L15_DAYS = 86400000 * 15
     L28_DAYS = 86400000 * 28
     TYPES = ["WITHDRAWAL", "FEE", "PAYMENT", "BILLED"]
@@ -111,23 +147,45 @@ def findSuspects(user, transactions):
         sig_cond = True if description in DANGER_SIGNALS else False
 
         if (des_cond and time_cond and (type_cond or sig_cond)):
-            if (dup_des["time"] > time):
-                dup_des, record = record, dup_des
+            #if (dup_des["time"] > time):
+                #dup_des, record = record, dup_des
             curr_alert = "$" + str(amount) + " paid to " + description + " on " + str(date)
             past_alert = "$" + str(dup_des["amount"]) + " was also paid to " + str(dup_des["description"]) + " on " + str(dup_des["date"])
             alert = 'ALERT' + '\n' + curr_alert + '\n' + past_alert + '\n'
             print(alert)
-            user_answer = raw_input("Is this intended? Y/N :")
-            user_answer = user_answer.upper()
-            if user_answer != 'Y' and user_answer != 'N':
-                user_answer = raw_input('Please answer Y or N: ')
-                user_answer = user_answer.upper()
-                continue
-            elif user_answer == 'Y':
-                return('Alert ignored')
-            else:
-                return('Sorry.')
-    return 'No suspicious activities'
+            checkSuspect(alert)
+    return 'No suspicious activity'
+
+def getSolutions(alert):
+    contact_options = {}
+    options = {}
+    msg_contact = "THU"
+    call_list = [{'WENDY' : '(xxx)-123-678'}, {'JIMMY' : '(xxx)-234-567'}, {'YOUR CAT' : '(xxx)-689-246'}, {'THU' : '+12818657070'}]
+    print("Here are what you can do:" + '\n')
+    print("<Please choose an option>" + '\n')
+
+    for contact in call_list:
+        for name in contact:
+            number = contact[name]
+            command = "Call " + name + " at " + number
+            contact_options[call_list.index(contact) + 1] = name
+            options[call_list.index(contact) + 1] = command
+    options[len(call_list) + 1] = "Send the alert to " + msg_contact
+
+    for option in options:
+        display_option = str(option) + ": " + options[option]
+        print(display_option)
+    user_input = int(raw_input("Please choose an option: "))
+
+    if (user_input == len(options)):
+        sendSMS(alert, msg_contact)
+    else:
+        name = contact_options[user_input]
+        for contact in call_list:
+            if name in call_list:
+                number = contact[name]
+        #print(name,number)
+        callContact(name, number)
 
 def main():
     user = {'LegalParticipantIdentifier': '908997180284469041'}
@@ -136,5 +194,6 @@ def main():
     transactions = getTransactions(user_accounts_info)
     process_transactions = processTransactions(user, transactions)
     suspects = findSuspects(user, transactions)
+
     print(suspects)
 main()
