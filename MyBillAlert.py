@@ -2,13 +2,14 @@ import json
 import requests
 import datetime
 import operator
-from twilio.rest import Client
+import auth_credentials
 
 url = "http://api119525live.gateway.akana.com:80/"
 trans_url = "https://api119622live.gateway.akana.com:443/"
-account_sid = "AC138300689e5e1f81445e6211bef726dd"
-auth_token  = "68d9c64504a692a77352c986155edb54"
-client = Client(account_sid, auth_token)
+account_sid = auth_credentials.account_sid
+auth_token = auth_credentials.auth_token
+client = auth_credentials.client
+
 #response = requests.get(url + "users")
 #json_data = json.loads(response.text)
 #users = json_data["LegalParticipantIdentifierList"]
@@ -17,9 +18,9 @@ client = Client(account_sid, auth_token)
 def sendSMS(alert, contact):
     msg_str = "Hi " + contact + ", " + " can you look into this for me? " + "\n" + alert
     message = client.messages.create(
-        to="+12818657070",
-        from_="+18327304269",
-        body= msg_str)
+        to= auth_credentials.test_number,
+        from_= auth_credentials.twilio_number,
+        body = msg_str)
     print("Alert successfully sent to THU")
     #print(message.sid)
 
@@ -27,7 +28,7 @@ def callContact(contact, number):
     # Make the call
     call = client.api.account.calls\
             .create(to = number ,  # Any phone number
-              from_="+18327304269", # Must be a valid Twilio number
+              from_=auth_credentials.twilio_number, # Must be a valid Twilio number
               url="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient")
     print("Calling " +  contact)
     print(call.sid)
@@ -93,7 +94,8 @@ def processTransactions(user, transactions):
             if (product_code == 'DDA'):
                 if ("Description1" in transaction):
                     description = transaction["Description1"].encode("utf-8").upper()
-                trans_type = transaction["TransactionLevelCode"].encode("utf-8").upper()
+                if ("TransactionLevelCode" in transaction):
+                    trans_type = transaction["TransactionLevelCode"].encode("utf-8").upper()
                 amount = transaction["PostedAmount"].encode("utf-8").upper()
                 trans_date = transaction["EffectiveDate"]
                 trans_time = transaction["TransactionTime"]
@@ -188,7 +190,7 @@ def getSolutions(alert):
         callContact(name, number)
 
 def main():
-    user = {'LegalParticipantIdentifier': '908997180284469041'}
+    user = {'LegalParticipantIdentifier': '913996201744144603'}
     user_accounts = getUserAccounts(user)
     user_accounts_info = getUserAccountsInfo(user_accounts)
     transactions = getTransactions(user_accounts_info)
