@@ -30,8 +30,8 @@ def callContact(contact, number):
             .create(to = number ,  # Any phone number
               from_=auth_credentials.twilio_number, # Must be a valid Twilio number
               url="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient")
-    print("Calling " +  contact)
-    print(call.sid)
+    print("Calling " +  contact + '\n')
+    #print(call.sid)
 
 def found_dict((key, value), myList):
     for mydict in myList:
@@ -169,7 +169,7 @@ def getSolutions(alert):
     for contact in call_list:
         for name in contact:
             number = contact[name]
-            command = "Call " + name + " at " + number
+            command = "Call " + name #+ " at " + number
             contact_options[call_list.index(contact) + 1] = name
             options[call_list.index(contact) + 1] = command
     options[len(call_list) + 1] = "Send the alert to " + msg_contact
